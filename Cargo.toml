@@ -1,0 +1,43 @@
+[package]
+name = "qxscan"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Phaneendra Bhattiprolu <phanibh@qxapps.net>"]
+license = "Apache-2.0"
+description = "On-Prem Security & Compliance Scanner"
+repository = "https://github.com/QXApps/qxscan"
+homepage = "https://qxscan.dev"
+keywords = ["security", "compliance", "tls", "scanner", "pqc"]
+categories = ["security", "command-line-utilities"]
+readme = "README.md"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+ctrlc = "3"
+dirs = "6"
+env_logger = "0.11"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", features = [
+    "runtime-tokio-rustls",
+    "sqlite",
+    "migrate",
+] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+toml = "0.8"
+uuid = { version = "1", features = ["v4", "serde"] }
+openssl = { version = "0.10", features = ["vendored"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+opt-level = "z"     # optimize for size rather than speed
+lto = true          # link-time optimization — removes dead code across crates
+codegen-units = 1   # single codegen unit enables better LTO
+strip = true        # strip debug symbols from the binary
+panic = "abort"     # remove panic unwinding machinery
