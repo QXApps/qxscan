@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QXScan PQC Demo — Frontend (TLS 1.3 + PQC)</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --amber: #d29922;
+    --red: #f85149;
+    --purple: #bc8cff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #fff;
+  }
+  .badges { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+  }
+  .badge.pqc { background: #2ea04333; color: var(--green); border: 1px solid var(--green); }
+  .badge.tls13 { background: #1f6feb33; color: var(--accent); border: 1px solid var(--accent); }
+  .badge.https { background: #d2992233; color: var(--amber); border: 1px solid var(--amber); }
+  .badge.legacy { background: #f8514933; color: var(--red); border: 1px solid var(--red); }
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem; width: 100%; flex: 1; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .card:hover { border-color: var(--accent); box-shadow: 0 0 20px rgba(88,166,255,0.1); }
+  .card h2 { font-size: 1rem; color: #fff; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+  .card .status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+  .card .status .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .stat-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .label { color: #8b949e; }
+  .stat-row .value { color: #fff; font-weight: 500; }
+  .info-box {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 2rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+  .info-box .key { color: var(--purple); }
+  .info-box .string { color: var(--green); }
+  .info-box .number { color: var(--accent); }
+  .info-box .boolean { color: var(--amber); }
+  .empty { color: #8b949e; font-style: italic; }
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1rem 2rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #8b949e;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .loading { animation: pulse 1.5s ease-in-out infinite; }
+  @media (max-width: 640px) {
+    .header { padding: 1rem; }
+    .container { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+<header class="header">
+  <h1>🔐 QXScan PQC Demo — Frontend</h1>
+  <div class="badges">
+    <span class="badge pqc">PQC Ready</span>
+    <span class="badge tls13">TLS 1.3</span>
+    <span class="badge https">HTTPS</span>
+  </div>
+</header>
+<div class="container">
+  <div class="grid">
+    <div class="card" id="frontend-card">
+      <h2>🖥️ Frontend (Nginx)</h2>
+      <div class="status"><span class="dot green"></span> TLS 1.3 — PQC Ready</div>
+      <div class="info-box" style="margin-top: 1rem;">
+        <div><span class="key">service</span>: <span class="string">"frontend-pqc"</span></div>
+        <div><span class="key">tls_version</span>: <span class="string">"TLSv1.3"</span></div>
+        <div><span class="key">pqc_hybrid</span>: <span class="boolean">true</span></div>
+        <div><span class="key">key_exchange</span>: <span class="string">"X25519MLKEM768"</span></div>
+        <div><span class="key">hsts</span>: <span class="boolean">true</span></div>
+      </div>
+    </div>
+
+    <div class="card" id="backend-card">
+      <h2>⚙️ Backend API</h2>
+      <div class="status" id="backend-status"><span class="dot amber loading"></span> Checking...</div>
+      <div class="stat-row"><span class="label">Health</span><span class="value" id="health-status">—</span></div>
+      <div class="stat-row"><span class="label">Users</span><span class="value" id="user-count">—</span></div>
+      <div class="stat-row"><span class="label">Swagger</span><span class="value"><a href="/api/docs" style="color:var(--accent);">/api/docs</a></span></div>
+    </div>
+
+    <div class="card" id="db-card">
+      <h2>🗄️ Database</h2>
+      <div class="status" id="db-status"><span class="dot amber loading"></span> Checking...</div>
+      <div class="stat-row"><span class="label">Type</span><span class="value">PostgreSQL 16</span></div>
+      <div class="stat-row"><span class="label">TLS</span><span class="value">STARTTLS + Direct TLS</span></div>
+      <div class="stat-row"><span class="label">Users</span><span class="value" id="db-user-count">—</span></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 1.5rem;">
+    <h2>📋 Connected Users</h2>
+    <div id="user-list"><span class="empty">Loading...</span></div>
+  </div>
+
+  <div class="info-box">
+    <div><span class="key">_note</span>: <span class="string">"This frontend is configured with TLS 1.3 and PQC-ready hybrid key exchange (X25519MLKEM768). Scan this endpoint to verify PQC readiness."</span></div>
+    <div style="margin-top: 0.5rem;"><span class="key">scan_command</span>: <span class="string">"docker compose run --rm scanner qxscan scan frontend-pqc --port 443 --standards pqc,pci-dss"</span></div>
+  </div>
+</div>
+<footer>
+  QXScan Demo Environment — Built for TLS Security &amp; Compliance Testing
+</footer>
+<script>
+async function checkBackend() {
+  try {
+    const health = await fetch('/api/health');
+    const hData = await health.json();
+    document.getElementById('backend-status').innerHTML = '<span class="dot green"></span> Connected (TLS 1.3)';
+    document.getElementById('health-status').textContent = hData.status || 'ok';
+
+    const stats = await fetch('/api/stats');
+    const sData = await stats.json();
+    document.getElementById('user-count').textContent = sData.userCount ?? '—';
+
+    const users = await fetch('/api/users');
+    const uData = await users.json();
+    const userList = document.getElementById('user-list');
+    if (uData.length > 0) {
+      userList.innerHTML = uData.map(u =>
+        `<div class="stat-row"><span class="label">${u.name}</span><span class="value">${u.email}</span></div>`
+      ).join('');
+      document.getElementById('db-user-count').textContent = uData.length;
+    } else {
+      userList.innerHTML = '<span class="empty">No users found</span>';
+    }
+    document.getElementById('db-status').innerHTML = '<span class="dot green"></span> Connected (STARTTLS)';
+  } catch (e) {
+    document.getElementById('backend-status').innerHTML = '<span class="dot red"></span> Disconnected';
+    document.getElementById('health-status').textContent = 'unreachable';
+    document.getElementById('db-status').innerHTML = '<span class="dot red"></span> Disconnected';
+  }
+}
+checkBackend();
+setInterval(checkBackend, 15000);
+</script>
+</body>
+</html>

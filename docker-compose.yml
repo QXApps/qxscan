@@ -1,0 +1,252 @@
+# docker-compose.yml — QXScan Demo Suite
+# Orchestrates sample services for TLS security & compliance scanning.
+#
+# Quick start:
+#   docker compose up -d              # Start all core services
+#   docker compose run --rm scanner scan frontend-pqc --port 443 --standards pqc
+#   docker compose up demo-scan       # Run full demo scan suite
+#
+x-common:
+  &certs-dep
+  certs:
+    condition: service_completed_successfully
+
+x-networks:
+  &scan-net
+  networks:
+    - qxscan-demo
+
+services:
+  # ─── Certificate Authority ──────────────────────────────────
+  certs:
+    build:
+      context: ./demo/certs
+    container_name: qxscan-certs
+    volumes:
+      - certs-data:/certs
+
+  # ─── Database ───────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: qxscan-db
+    <<: *scan-net
+    depends_on: *certs-dep
+    environment:
+      POSTGRES_DB: qxscan
+      POSTGRES_USER: qxscan
+      POSTGRES_PASSWORD: qxscan_demo_pass
+    volumes:
+      - certs-data:/certs:ro
+      - pgdata:/var/lib/postgresql/data
+      - ./demo/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: >
+      -c ssl=on
+      -c ssl_cert_file=/certs/db.crt
+      -c ssl_key_file=/certs/db.key
+      -c ssl_ca_file=/certs/ca.crt
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qxscan -d qxscan"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    expose:
+      - "5432"
+
+  # ─── Database Proxy (Direct TLS → PostgreSQL STARTTLS) ─────
+  db-proxy:
+    build:
+      context: ./demo/db-proxy
+    container_name: qxscan-db-proxy
+    <<: *scan-net
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - certs-data:/certs:ro
+    expose:
+      - "5433"
+    healthcheck:
+      test: ["CMD-SHELL", "socat -T 2 /dev/null OPENSSL:localhost:5433,verify=0 2>/dev/null && exit 0 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  # ─── Backend API (Node.js + Express + Swagger) ─────────────
+  backend:
+    build:
+      context: ./demo/backend
+    container_name: qxscan-backend
+    <<: *scan-net
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - certs-data:/certs:ro
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: qxscan
+      DB_USER: qxscan
+      DB_PASSWORD: qxscan_demo_pass
+    expose:
+      - "443"
+
+  # ─── Frontend PQC (TLS 1.3 + Nginx) ────────────────────────
+  frontend-pqc:
+    build:
+      context: ./demo/frontend
+    container_name: qxscan-frontend-pqc
+    <<: *scan-net
+    restart: on-failure
+    depends_on:
+      backend:
+        condition: service_started
+    volumes:
+      - certs-data:/certs:ro
+    expose:
+      - "443"
+
+  # ─── Caddy PQC (dedicated PQC hybrid key exchange demo) ────
+  caddy-pqc:
+    build:
+      context: ./demo/caddy-pqc
+    container_name: qxscan-caddy-pqc
+    <<: *scan-net
+    depends_on: *certs-dep
+    volumes:
+      - certs-data:/certs:ro
+    expose:
+      - "443"
+
+  # ─── Frontend Legacy (TLS 1.2 Only, No PQC) ────────────────
+  frontend-legacy:
+    build:
+      context: ./demo/frontend-legacy
+    container_name: qxscan-frontend-legacy
+    <<: *scan-net
+    depends_on: *certs-dep
+    volumes:
+      - certs-data:/certs:ro
+    expose:
+      - "443"
+
+  # ─── ALB (Application Load Balancer — Nginx) ───────────────
+  alb:
+    build:
+      context: ./demo/alb
+    container_name: qxscan-alb
+    <<: *scan-net
+    restart: on-failure
+    depends_on:
+      frontend-pqc:
+        condition: service_started
+      frontend-legacy:
+        condition: service_started
+    volumes:
+      - certs-data:/certs:ro
+    ports:
+      - "8443:443"
+    expose:
+      - "443"
+      - "8080"
+
+  # ─── Mail Stub (SMTP with STARTTLS) ─────────────────────────
+  mail:
+    build:
+      context: ./demo/mail
+    container_name: qxscan-mail
+    <<: *scan-net
+    depends_on: *certs-dep
+    volumes:
+      - certs-data:/certs:ro
+    expose:
+      - "587"
+
+  # ─── QXScan Scanner (ad-hoc) ───────────────────────────────
+  scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qxscan-scanner
+    <<: *scan-net
+    depends_on: *certs-dep
+    volumes:
+      - certs-data:/certs:ro
+      - ./results:/data/results
+    entrypoint: ["qxscan"]
+
+  # ─── QXScan Daemon (runs as server) ────────────────────────
+  qxscaner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qxscan-daemon
+    <<: *scan-net
+    depends_on: *certs-dep
+    volumes:
+      - certs-data:/certs:ro
+      - qxscan-state:/root/.qxscan
+    entrypoint: ["qxscan", "server", "start"]
+    expose:
+      - "9412"
+
+  # ─── Demo Scan Suite (one-shot) ────────────────────────────
+  demo-scan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qxscan-demo-scan
+    <<: *scan-net
+    depends_on:
+      alb:
+        condition: service_started
+      frontend-pqc:
+        condition: service_started
+      frontend-legacy:
+        condition: service_started
+      caddy-pqc:
+        condition: service_started
+      backend:
+        condition: service_started
+      db:
+        condition: service_healthy
+      db-proxy:
+        condition: service_healthy
+      mail:
+        condition: service_started
+    volumes:
+      - certs-data:/certs:ro
+      - ./demo/reports:/reports
+    entrypoint: >
+      sh -c "
+        echo '=== QXScan Demo Suite ===' &&
+        echo '--- Scanning frontend-pqc (TLS 1.3 + PQC) ---' &&
+        qxscan scan frontend-pqc --port 443 --no-verify --timeout 15 --standards pci-dss,hipaa,pqc --output terminal &&
+        echo '--- Scanning caddy-pqc (dedicated PQC fixture) ---' &&
+        qxscan scan caddy-pqc --port 443 --no-verify --timeout 15 --standards pci-dss,hipaa,pqc --output terminal &&
+        echo '--- Scanning frontend-legacy (TLS 1.2, no PQC) ---' &&
+        qxscan scan frontend-legacy --port 443 --no-verify --timeout 15 --standards pci-dss,hipaa,pqc --output terminal &&
+        echo '--- Scanning via ALB (port 443) ---' &&
+        qxscan scan alb --port 443 --no-verify --timeout 15 --standards pci-dss,hipaa,pqc --output terminal &&
+        echo '--- Scanning backend ---' &&
+        qxscan scan backend --port 443 --no-verify --timeout 15 --standards pci-dss,hipaa,pqc --output terminal &&
+        echo '--- Scanning db-proxy (direct TLS) ---' &&
+        qxscan scan db-proxy --port 5433 --no-verify --timeout 15 --standards pci-dss --output terminal &&
+        echo '--- Scanning mail (SMTP STARTTLS) ---' &&
+        qxscan scan mail --port 587 --no-verify --timeout 15 --output terminal &&
+        echo '=== Demo Suite Complete ===' &&
+        qxscan scan frontend-pqc --port 443 --no-verify --timeout 15 --standards pqc --output json --report-file /reports/scan_pqc.json &&
+        qxscan scan caddy-pqc --port 443 --no-verify --timeout 15 --standards pqc --output json --report-file /reports/scan_caddy.json &&
+        qxscan scan alb --port 443 --no-verify --timeout 15 --standards pci-dss,hipaa,soc2 --output json --report-file /reports/scan_alb.json &&
+        echo 'Reports saved to /reports/'
+      "
+
+networks:
+  qxscan-demo:
+    driver: bridge
+
+volumes:
+  certs-data:
+  pgdata:
+  qxscan-state:

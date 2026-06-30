@@ -1,0 +1,15 @@
+# qxscan demo targets
+# Each line: hostname:port or IP:port
+# Run: docker compose run --rm scanner qxscan scan --targets-file /data/targets.txt
+#
+# These targets are expected to be running from the docker-compose demo stack.
+# Start with: docker compose up -d
+
+frontend-pqc:443
+caddy-pqc:443
+frontend-legacy:443
+alb:443
+backend:443
+db:5432
+db-proxy:5433
+mail:587

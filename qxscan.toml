@@ -1,0 +1,51 @@
+# qxscan.toml — reference configuration
+# All values shown are defaults. Override as needed.
+
+[server]
+# Where the daemon writes its PID file
+pid_file   = "~/.qxscan/qxscan.pid"
+# Bind address for the /metrics and /status HTTP endpoint (OSS)
+bind       = "127.0.0.1:9412"
+
+[database]
+# Connection URL. Default: SQLite at ~/.qxscan/state.db
+# Supports sqlite://, postgres://, postgresql://, mysql://, mariadb://
+# Env var expansion: postgres://${DB_USER}:${DB_PASS}@host/db
+url = "sqlite://${HOME}/.qxscan/state.db"
+# Maximum connections in the pool (min 1, default 5)
+max_connections = 5
+# Connection timeout in seconds (default 10)
+connect_timeout_s = 10
+
+[scan]
+# Default connection timeout in seconds
+timeout_s  = 10
+# Default concurrent scan workers
+concurrency = 4
+# Default standards to evaluate when --standards is not specified
+standards  = ["pci-dss", "hipaa", "pqc"]
+
+[schedule]
+# Schedules are managed via `qxscan schedule add` and persisted in state_db.
+# This section is reserved for future defaults.
+
+[export]
+# Default export format for `qxscan export`
+default_format = "qem"
+
+# Enterprise sink configuration (keys ignored in OSS build)
+# [export.elastic]
+# url      = "https://elastic.internal:9200"
+# index    = "qxscan-findings"
+# api_key  = "${ELASTIC_API_KEY}"   # env var reference
+
+# [export.splunk]
+# hec_url  = "https://splunk.internal:8088/services/collector"
+# token    = "${SPLUNK_HEC_TOKEN}"
+
+# [export.datadog]
+# api_key  = "${DD_API_KEY}"
+# site     = "datadoghq.com"
+
+# [export.otlp]
+# endpoint = "http://otel-collector:4317"
