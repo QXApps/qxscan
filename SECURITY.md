@@ -11,7 +11,7 @@ priority. If you discover a security issue, please report it privately.
 
 - **GitHub Security Advisory**: Use the "Report a Vulnerability" button
   at https://github.com/QXApps/qxscan/security/advisories
-- **Email**: `security@qxapps.net` (if available)
+- **Email**: `phanibh@qxapps.net`
 
 ### What to include
 
