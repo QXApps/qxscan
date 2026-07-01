@@ -1,0 +1,45 @@
+# =============================================================================
+# QXScan Edge Case & Validation Targets
+# Deterministic targets with KNOWN expected outcomes.
+# Use for: CI validation, regression testing, scanner correctness checks.
+#
+# Each target has a documented expected result so failures are unambiguous.
+# =============================================================================
+
+# ── Known PASS — TLS 1.3, valid cert, strong ciphers ────────────────────────
+example.com:443           # IANA reserved, stable, always TLS 1.3
+1.1.1.1:443               # Cloudflare, always TLS 1.3
+8.8.8.8:443               # Google DNS HTTPS, always TLS 1.3
+
+# ── Known FAIL — TLS 1.2 only, weak config ───────────────────────────────────
+# badssl.com endpoints: purpose-built for scanner validation (run by Google)
+tls-v1-2.badssl.com:443   # TLS 1.2 only  — expect: PCI-DSS FAIL, PQC FAIL
+tls-v1-1.badssl.com:443   # TLS 1.1 only  — expect: FAIL all standards
+sha256.badssl.com:443      # SHA-256 cert  — expect: PASS (valid, just weak sig)
+# Note: badssl.com targets produce deterministic results for CI assertions
+
+# ── Known FAIL — Certificate issues ──────────────────────────────────────────
+expired.badssl.com:443    # Expired cert  — expect: cert validity FAIL
+wrong.host.badssl.com:443 # Wrong hostname — expect: cert hostname FAIL
+self-signed.badssl.com:443 # Self-signed  — expect: trust chain FAIL
+
+# ── Known No TLS — Plain HTTP ────────────────────────────────────────────────
+httpbin.org:80            # HTTP only     — expect: NoTls status
+github.com:80             # Redirects     — expect: NoTls status
+
+# ── Known Connection Failed — port closed ────────────────────────────────────
+google.com:80             # Port 80 refused — expect: ConnectionFailed
+cloudflare.com:80         # Port 80 refused — expect: ConnectionFailed
+localhost:1               # Nothing here  — expect: ConnectionFailed
+
+# ── Known Timeout ────────────────────────────────────────────────────────────
+10.255.255.1:443          # RFC 5737 blackhole — expect: Timeout
+
+# ── Environment-dependent (exclude from CI, use locally only) ────────────────
+# Uncomment only when demo Docker stack is running (docker compose up -d)
+# alb:443
+# caddy-pqc:443
+# frontend-pqc:443
+# frontend-legacy:443
+# db-proxy:5433
+# mail:587

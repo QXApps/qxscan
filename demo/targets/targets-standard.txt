@@ -1,0 +1,87 @@
+# =============================================================================
+# QXScan Standard Test Targets
+# General-purpose target list: HTTPS on 443 across major service categories.
+# Use for: daily scheduled scans, regression testing, README demos.
+#
+# Usage:
+#   qxscan scan --targets-file targets-standard.txt
+#   qxscan scan --targets-file targets-standard.txt --standards pci-dss,hipaa,pqc
+# =============================================================================
+
+# ── Web / SaaS ──────────────────────────────────────────────────────────────
+google.com
+github.com
+gitlab.com
+bitbucket.org
+cloudflare.com
+fastly.com
+stackoverflow.com
+wikipedia.org
+npmjs.org
+pypi.org
+crates.io
+rubygems.org
+hub.docker.com
+hashicorp.com
+vercel.com
+netlify.com
+digitalocean.com
+
+# ── Cloud Providers ──────────────────────────────────────────────────────────
+aws.amazon.com
+azure.microsoft.com
+cloud.google.com
+ibm.com
+linode.com
+upcloud.com
+
+# ── Email / Messaging ────────────────────────────────────────────────────────
+proton.me
+outlook.com
+sendgrid.com
+slack.com
+discord.com
+
+# ── Databases / Infrastructure ───────────────────────────────────────────────
+mongodb.com
+postgresql.org
+redis.io
+elastic.co
+timescale.com
+neo4j.com
+cockroachlabs.com
+mariadb.org
+sqlite.org
+confluent.io
+snowflake.com
+
+# ── Monitoring / Observability ───────────────────────────────────────────────
+datadoghq.com
+newrelic.com
+grafana.com
+prometheus.io
+opentelemetry.io
+jaegertracing.io
+
+# ── Developer Tools / Orchestration ──────────────────────────────────────────
+docker.com
+kubernetes.io
+helm.sh
+istio.io
+nginx.com
+traefik.io
+haproxy.org
+apache.org
+
+# ── Identity / Auth ──────────────────────────────────────────────────────────
+auth0.com
+okta.com
+
+# ── Other SaaS ───────────────────────────────────────────────────────────────
+atlassian.com
+notion.so
+figma.com
+stripe.com
+sentry.io
+databricks.com
+ngrok.com

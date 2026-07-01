@@ -20,8 +20,9 @@
 
 ## 1. Code of Conduct
 
-Be respectful, constructive, and professional. This is a security tool —
-quality matters more than velocity.
+This project follows the [Contributor Covenant Code of Conduct](../CODE_OF_CONDUCT.md).
+Please read it before participating. Be respectful, constructive, and professional.
+This is a security tool — quality matters more than velocity.
 
 ---
 
@@ -184,15 +185,20 @@ cargo audit
 
 ### Demo Suite
 
-The project includes two demo test suites:
+The project includes a layered test harness under `demo/`:
 
 ```bash
-# Process-level integration tests
-cd demo && bash demo_suite.sh
+# Docker health + content assertions
+cd demo && bash test_docker.sh
 
-# Content assertion tests (requires jq)
-bash demo_suite_v2.sh <report-json> <report-html>
+# Classification tests against external targets
+cd demo && bash classification_test.sh edge
+
+# Master test runner (all suites)
+cd demo && bash test_all.sh
 ```
+
+See [`docs/testing.md`](testing.md) for full details on the test suite.
 
 ---
 
@@ -206,8 +212,8 @@ Before submitting a pull request, verify all of the following:
 [ ] cargo clippy -- -D warnings — clean
 [ ] cargo fmt --check — clean
 [ ] cargo audit — no new vulnerabilities
-[ ] demo/demo_suite.sh — 27/27 PASS (if applicable)
-[ ] demo/demo_suite_v2.sh — all content assertions PASS
+[ ] demo/test_docker.sh — all assertions PASS (if applicable)
+[ ] demo/classification_test.sh — classification results as expected
 [ ] New controls have pass + fail unit tests
 [ ] No pass finding has non-null remediation
 [ ] PQC controls: pqc_hybrid=false → warn, not pass

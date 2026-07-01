@@ -31,7 +31,7 @@ stage. No module spans two stages.
                         ▼
               ┌─────────────────┐
               │  qem/ (QEM)   │  ← STABLE PUBLIC SCHEMA
-              │  metadata.rs    │    ScanEvent envelope
+              │  metadata.rs    │    ScanEvent envelope (incl. ScannerInfo)
               │  observation.rs │    TlsInfo, CertInfo (Evidence)
               │  finding.rs     │    Finding, Severity
               │  compliance.rs  │    ComplianceScore
@@ -114,7 +114,7 @@ qxscan/
 │   │
 │   ├── qem/                   ← QEM: QX Event Model (stable schema)
 │   │   ├── mod.rs               ← Re-exports all public types
-│   │   ├── metadata.rs          ← ScanEvent envelope, TargetInfo, ScanStatus
+│   │   ├── metadata.rs          ← ScanEvent envelope, TargetInfo, ScannerInfo, ScanStatus
 │   │   ├── observation.rs       ← Evidence: TlsInfo, CertInfo (raw wire data)
 │   │   ├── finding.rs           ← Finding, FindingStatus, Severity
 │   │   └── compliance.rs        ← ComplianceScore, grade_from_score()
@@ -169,9 +169,14 @@ qxscan/
 │   └── 0002_scan_reports.sql    ← Table: scan_reports (rendered report storage)
 │
 └── demo/
-    ├── demo_suite.sh            ← 27-test process-level suite
-    ├── demo_suite_v2.sh         ← Content assertion suite (jq)
-    ├── targets.txt
+    ├── test_docker.sh           ← Docker health + content assertions
+    ├── test_all.sh              ← Master test runner
+    ├── classification_test.sh   ← External target classification
+    ├── targets/
+    │   ├── targets-docker.txt
+    │   ├── targets-standard.txt
+    │   ├── targets-services.txt
+    │   └── targets-edge.txt
     ├── caddy-pqc/               ← Canonical "PQC-ready" fixture
     ├── certs/generate.sh        ← Test cert generation
     └── ...

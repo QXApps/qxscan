@@ -18,6 +18,7 @@ RUN cargo build --release && \
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates && \
+    update-ca-certificates --fresh && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /build/target/release/qxscan /usr/local/bin/qxscan
@@ -25,6 +26,9 @@ COPY qxscan.toml /etc/qxscan/qxscan.toml
 
 # Symlink so qxscan finds its config in the default search path
 RUN ln -s /etc/qxscan/qxscan.toml /qxscan.toml
+
+# Point vendored OpenSSL to the Debian CA certificate bundle
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 ENTRYPOINT ["qxscan"]
 CMD ["--help"]

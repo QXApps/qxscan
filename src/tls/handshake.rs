@@ -36,6 +36,9 @@ pub enum ProbeError {
     ResolutionFailed(String),
     ConnectionFailed(std::io::Error),
     TlsHandshakeFailed(String),
+    /// TCP connection succeeded, but the server did not respond with TLS
+    /// for any of the supported protocol versions.
+    NotTls(String),
     NoSupportedTls,
 }
 
@@ -45,6 +48,7 @@ impl std::fmt::Display for ProbeError {
             ProbeError::ResolutionFailed(host) => write!(f, "DNS resolution failed for {host}"),
             ProbeError::ConnectionFailed(e) => write!(f, "TCP connection failed: {e}"),
             ProbeError::TlsHandshakeFailed(msg) => write!(f, "TLS handshake failed: {msg}"),
+            ProbeError::NotTls(msg) => write!(f, "Target does not appear to use TLS: {msg}"),
             ProbeError::NoSupportedTls => write!(
                 f,
                 "No supported TLS protocol found (requires TLS 1.2 or 1.3)"
@@ -102,7 +106,13 @@ pub fn probe(
                     });
                 }
                 Err(e) => {
-                    if let Some(io_err) =
+                    // anyhow wraps the original error; io::Error is a root
+                    // cause (source() returns None). Try downcast_ref directly
+                    // first, then fall back to source() for nested errors
+                    // (e.g. openssl wrapping io::Error).
+                    if let Some(io_err) = e.downcast_ref::<std::io::Error>() {
+                        last_conn_err = Some(io_err.kind());
+                    } else if let Some(io_err) =
                         e.source().and_then(|s| s.downcast_ref::<std::io::Error>())
                     {
                         last_conn_err = Some(io_err.kind());
@@ -117,10 +127,36 @@ pub fn probe(
     if let Some(err_kind) = last_conn_err {
         Err(ProbeError::ConnectionFailed(std::io::Error::from(err_kind)))
     } else if let Some(msg) = last_tls_err {
-        Err(ProbeError::TlsHandshakeFailed(msg))
+        // TCP connected but TLS failed — determine whether the server
+        // responded with non-TLS data (plain HTTP, etc.) vs. a genuine
+        // TLS handshake error (cert validation, cipher mismatch, …).
+        if is_not_tls_error(&msg) {
+            Err(ProbeError::NotTls(msg))
+        } else {
+            Err(ProbeError::TlsHandshakeFailed(msg))
+        }
     } else {
         Err(ProbeError::NoSupportedTls)
     }
+}
+
+/// Heuristic to detect whether a TLS handshake error indicates the
+/// server does not speak TLS at all (plain HTTP, SSH, etc.) rather than
+/// a genuine TLS protocol or certificate issue.
+///
+/// OpenSSL produces specific error messages when it receives plaintext
+/// (e.g. an HTTP response) instead of a TLS record:
+/// - "wrong version number" — HTTP/1.1 "HTTP/1.1" isn't a valid TLS record
+/// - "unexpected EOF" — server closes after receiving ClientHello
+/// - "http request" — rare; some servers return HTTP 400
+fn is_not_tls_error(msg: &str) -> bool {
+    let keywords = [
+        "wrong version number",
+        "unexpected EOF",
+        "http request",
+        "no protocols available",
+    ];
+    keywords.iter().any(|kw| msg.contains(kw))
 }
 
 fn try_connect_tls(

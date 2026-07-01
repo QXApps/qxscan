@@ -93,6 +93,7 @@ pub fn probe_target(target: &ResolvedTarget, timeout: Duration, no_verify: bool)
                     }
                 }
                 crate::tls::handshake::ProbeError::TlsHandshakeFailed(_) => ScanStatus::Error,
+                crate::tls::handshake::ProbeError::NotTls(_) => ScanStatus::NoTls,
                 crate::tls::handshake::ProbeError::NoSupportedTls => {
                     ScanStatus::UnsupportedProtocol
                 }
