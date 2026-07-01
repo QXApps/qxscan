@@ -13,6 +13,9 @@ output, and gets out of the way. It runs on a single machine, stores
 history in SQLite, and emits open formats that any downstream tool can
 consume.
 
+See [ROADMAP.md](../ROADMAP.md) for the planned feature timeline across
+OSS releases and Enterprise.
+
 Enterprise features layer on top — they add **fleet management,
 aggregation, alerting, and dashboards** without changing how scanning works.
 

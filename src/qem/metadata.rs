@@ -46,6 +46,9 @@ pub struct ScanEvent {
     /// Wall-clock duration of the scan in milliseconds.
     pub scan_duration_ms: u64,
 
+    /// Scanner provenance — name, version, engine, platform.
+    pub scanner: ScannerInfo,
+
     /// The scanned target.
     pub target: TargetInfo,
 
@@ -70,6 +73,12 @@ impl ScanEvent {
             scan_id: Uuid::new_v4(),
             scanned_at: Utc::now(),
             scan_duration_ms: 0,
+            scanner: ScannerInfo {
+                name: crate::about::PRODUCT.into(),
+                version: crate::about::BUILD.into(),
+                engine: crate::about::ENGINE.into(),
+                platform: format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
+            },
             target,
             overall_status: ScanStatus::Pass,
             tls: None,
@@ -77,6 +86,20 @@ impl ScanEvent {
             compliance: std::collections::HashMap::new(),
         }
     }
+}
+
+/// Scanner provenance metadata — included in every scan event.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScannerInfo {
+    /// Product name (e.g. "QXScan").
+    pub name: String,
+    /// Build version from Cargo.toml (e.g. "0.1.0").
+    pub version: String,
+    /// QEM engine name (e.g. "QEM"). The schema_version field above
+    /// indicates the event format version.
+    pub engine: String,
+    /// Compile-time platform (e.g. "linux-x86_64").
+    pub platform: String,
 }
 
 /// Resolved target information.

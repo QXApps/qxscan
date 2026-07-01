@@ -65,8 +65,11 @@ cargo test -- --nocapture
 | `compliance/standards/pqc.rs` | 3 | Pass + fail + PQC rules |
 | `schedule/cron.rs` | 2 | Daily + hourly cron computation |
 | `server/state.rs` | 9 | Report CRUD (insert, list, filter, get, delete) |
+| `tls/handshake.rs` | 10 | TLS probe: connection, handshake, classification |
+| `scanner/mod.rs` | 8 | Target resolution, probe orchestration |
+| `qem/` (event tests) | 12 | QEM type construction, serialization, status handling |
 
-**Total: 26 tests**
+**Total: 73 tests**
 
 ### Writing Tests
 
@@ -76,7 +79,7 @@ Every compliance standard must have **≥1 pass test and ≥1 fail test**:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::event::{metadata::ScanEvent, observation::TlsInfo};
+    use crate::qem::{metadata::ScanEvent, observation::TlsInfo};
 
     fn make_event(tls_version: &str) -> ScanEvent {
         let mut e = ScanEvent::new(/* target */);
@@ -159,8 +162,8 @@ cargo install cargo-audit
 
 ## Demo Suite
 
-The project includes two demo test suites that run against Docker-based
-demo infrastructure.
+The project includes a layered test harness under `demo/` that validates
+Docker infrastructure, report schema, and scanner classification correctness.
 
 ### Setup
 
@@ -172,41 +175,44 @@ docker compose build scanner
 docker compose up -d
 ```
 
-### Suite 1: Process-Level Tests
+### Test Scripts
 
 ```bash
-cd demo
-bash demo_suite.sh
+# Infrastructure health + content assertions
+cd demo && bash test_docker.sh
+
+# Infrastructure health only
+cd demo && bash test_docker.sh --health-only
+
+# Content assertions only (requires a JSON report)
+cd demo && bash test_docker.sh --assertions-only /tmp/report.json
+
+# Classification tests against external targets
+cd demo && bash classification_test.sh standard   # ~60 popular HTTPS sites
+cd demo && bash classification_test.sh services   # non-443 TLS services
+cd demo && bash classification_test.sh edge       # deterministic edge cases
+
+# Master test runner (all suites)
+cd demo && bash test_all.sh
+
+# Skip Docker-dependent checks
+cd demo && bash test_all.sh --skip-docker
+
+# Via Makefile
+cd demo && make test-all
+cd demo && make test-classification
+cd demo && make test-services
+cd demo && make test-edge
 ```
 
-This runs 27 process-level tests, including:
-- Exit code verification (0 for pass, 3 for fail, 4 for timeout)
-- Service-specific scanning (HTTPS, SMTP, PostgreSQL)
-- PQC hybrid detection
-- HTML report generation
-- Concurrent scanning
+### What's tested
 
-### Suite 2: Content Assertion Tests
-
-```bash
-# Generate reports first
-docker compose run --rm scanner scan frontend-pqc \
-  --port 443 --no-verify --output json --report-file /data/results/scan.json
-docker compose run --rm scanner scan frontend-pqc \
-  --port 443 --no-verify --output html --report-file /data/results/scan.html
-
-# Run assertions against reports
-bash demo/demo_suite_v2.sh results/scan.json results/scan.html
-```
-
-This uses `jq` to validate:
-- Schema version presence
-- Scan ID format (UUID)
-- Target information
-- TLS fields
-- Findings structure
-- Compliance scores
-- HTML structural elements
+| Suite | Script | What it validates |
+|-------|--------|-------------------|
+| Docker health | `test_docker.sh --health-only` | 8 containers running, ALB health, frontend HTTPS, backend API, DB, SMTP |
+| Content assertions | `test_docker.sh --assertions-only` | JSON schema (jq), exit codes, finding structure, compliance scores |
+| Classification | `classification_test.sh` | External target classification (pass/fail/warn/timeout/no-tls) |
+| Master runner | `test_all.sh` | Orchestrates all suites with optional filtering |
 
 ### Full Demo Scan
 

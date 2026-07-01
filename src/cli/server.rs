@@ -74,7 +74,7 @@ pub fn run(args: ServerArgs) -> anyhow::Result<u8> {
         }
         ServerAction::Restart { config } => {
             let config = Config::load(&config)?;
-            let _ = crate::server::stop_daemon(&config)?;
+            let _ = crate::server::stop_daemon(&config);
             let msg = crate::server::start_daemon(&config)?;
             println!("{msg}");
             Ok(0)

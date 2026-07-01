@@ -30,6 +30,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 27-test demo suite (`demo_suite.sh`) + content assertion suite (`demo_suite_v2.sh`)
 - CI workflow (build, test, clippy, fmt)
 - Multi-arch release workflow (linux/musl, macOS arm64/x86_64)
+- Windows cross-compile targets (`x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc`)
+- **Scanner provenance (QEM)**: `scanner` block in `ScanEvent` with `name`, `version`,
+  `engine`, and `platform` fields for enterprise metadata
+- `ROADMAP.md` — v0.1 completed, v0.2/v0.3 planned, Enterprise, non-goals
+- `CODE_OF_CONDUCT.md` — Contributor Covenant 2.1
+- `docs/protocols.md` — All 8 supported protocols with port mappings and TLS behaviour
+- Architecture diagram in `README.md`
+- "Supported Versions" section in `SECURITY.md`
+- `docs/testing.md` — Updated to reflect current test scripts (test_docker.sh,
+  classification_test.sh, test_all.sh)
+- `docs/qem-spec.md` — Documented `ScannerInfo` in ScanEvent envelope
+- `docs/contributing.md` — Linked to CODE_OF_CONDUCT.md, updated test references
+- `docs/README.md` — Added protocols.md to documentation index
+- `docs/architecture.md` — Updated source tree to mention ScannerInfo
+- `docs/enterprise.md` — Added ROADMAP.md reference
 
 ### Changed
 
@@ -49,6 +64,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pass findings now have `remediation: None` (was non-null for some pass findings)
 - All clippy warnings resolved (dead_code, unused_imports)
 - Demo suite v2 exit-code assertion bug fixed
+- **NoTls classification**: Plain HTTP services now correctly detected as
+  `ℹ️ No TLS` instead of `❌ Error`. Compliance findings are still generated
+  — missing TLS triggers PCI-DSS/HIPAA/SOC2/FISMA/PQC fail findings.
+- **Unreachable host timeout**: TCP connection errors (timeout, refused)
+  are now correctly classified as `⏰ Timeout` or `❌ Connection Failed`
+  instead of `❌ Error`. Underlying `io::Error` was not being detected
+  through anyhow's error chain (`e.source()` returns `None` for root causes).
+- **Docker CA bundle**: Added `ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt`
+  and `update-ca-certificates --fresh` so vendored OpenSSL finds the
+  system CA store inside the container.
+- **Windows cross-compile targets**: Added `x86_64-pc-windows-msvc` and
+  `aarch64-pc-windows-msvc` to the release workflow with platform-aware
+  packaging (.zip) and checksums (PowerShell `Get-FileHash`).
+- **Release workflow awk escaping**: Fixed double-escape of `\[` in release
+  notes extraction that caused empty release body.
 
 ### Removed
 

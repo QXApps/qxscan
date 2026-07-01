@@ -83,7 +83,7 @@ pub async fn run_scheduled_scan(
         event.overall_status = probed.status.clone();
         event.tls = probed.tls;
 
-        if event.overall_status == ScanStatus::Pass {
+        if event.overall_status == ScanStatus::Pass || event.overall_status == ScanStatus::NoTls {
             for standard in &standards {
                 match evaluate(&event, standard) {
                     Ok((findings, score)) => {
@@ -96,16 +96,18 @@ pub async fn run_scheduled_scan(
                 }
             }
 
-            if event
-                .findings
-                .iter()
-                .any(|f| f.status == FindingStatus::Fail)
+            if event.overall_status != ScanStatus::NoTls
+                && event
+                    .findings
+                    .iter()
+                    .any(|f| f.status == FindingStatus::Fail)
             {
                 event.overall_status = ScanStatus::Fail;
-            } else if event
-                .findings
-                .iter()
-                .any(|f| f.status == FindingStatus::Warn)
+            } else if event.overall_status != ScanStatus::NoTls
+                && event
+                    .findings
+                    .iter()
+                    .any(|f| f.status == FindingStatus::Warn)
             {
                 event.overall_status = ScanStatus::Warn;
             }
@@ -191,5 +193,210 @@ pub fn daemon_loop(pool: SqlitePool, timeout_secs: u64, concurrency: usize) {
 
         log::debug!("scheduler loop: sleeping 60s");
         std::thread::sleep(Duration::from_secs(60));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::qem::metadata::TargetInfo;
+
+    /// Build a minimal ScanEvent with the given status and TLS info.
+    fn make_event(status: ScanStatus, tls: Option<crate::qem::observation::TlsInfo>) -> ScanEvent {
+        let mut event = ScanEvent::new(TargetInfo {
+            host: "test.example.com".into(),
+            ip: Some("10.0.0.1".into()),
+            port: 443,
+            service: "https".into(),
+        });
+        event.overall_status = status;
+        event.tls = tls;
+        event
+    }
+
+    /// Run the same compliance-evaluation + status-escalation logic
+    /// used by run_scheduled_scan and the CLI scan command.
+    fn evaluate_and_escalate(event: &mut ScanEvent, standards: &[String]) {
+        if event.overall_status == ScanStatus::Pass || event.overall_status == ScanStatus::NoTls {
+            for standard in standards {
+                if let Ok((findings, score)) = evaluate(event, standard) {
+                    event.findings.extend(findings);
+                    event.compliance.insert(standard.replace('-', "_"), score);
+                }
+            }
+
+            if event.overall_status != ScanStatus::NoTls
+                && event
+                    .findings
+                    .iter()
+                    .any(|f| f.status == FindingStatus::Fail)
+            {
+                event.overall_status = ScanStatus::Fail;
+            } else if event.overall_status != ScanStatus::NoTls
+                && event
+                    .findings
+                    .iter()
+                    .any(|f| f.status == FindingStatus::Warn)
+            {
+                event.overall_status = ScanStatus::Warn;
+            }
+        }
+    }
+
+    // ── NoTls tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn notls_produces_fail_findings() {
+        let mut event = make_event(ScanStatus::NoTls, None);
+        evaluate_and_escalate(&mut event, &["pci-dss".into()]);
+
+        // NoTls should trigger FAIL findings for PCI-DSS
+        assert!(
+            event
+                .findings
+                .iter()
+                .any(|f| f.status == FindingStatus::Fail),
+            "Expected at least one FAIL finding for NoTls + PCI-DSS"
+        );
+    }
+
+    #[test]
+    fn notls_preserves_status_even_with_fail_findings() {
+        let mut event = make_event(ScanStatus::NoTls, None);
+        evaluate_and_escalate(&mut event, &["pci-dss".into()]);
+
+        // Status must remain NoTls even though there are FAIL findings
+        assert_eq!(
+            event.overall_status,
+            ScanStatus::NoTls,
+            "NoTls status must not be overwritten to Fail by compliance findings"
+        );
+    }
+
+    #[test]
+    fn notls_preserves_status_with_multiple_standards() {
+        let mut event = make_event(ScanStatus::NoTls, None);
+        evaluate_and_escalate(
+            &mut event,
+            &[
+                "pci-dss".into(),
+                "hipaa".into(),
+                "soc2".into(),
+                "fisma".into(),
+            ],
+        );
+
+        // All four standards should produce FAIL findings
+        let fail_count = event
+            .findings
+            .iter()
+            .filter(|f| f.status == FindingStatus::Fail)
+            .count();
+        assert!(
+            fail_count >= 4,
+            "Expected at least 4 FAIL findings (one per standard), got {fail_count}"
+        );
+
+        // Status must remain NoTls
+        assert_eq!(event.overall_status, ScanStatus::NoTls);
+    }
+
+    #[test]
+    fn notls_with_pqc_is_not_applicable() {
+        let mut event = make_event(ScanStatus::NoTls, None);
+        evaluate_and_escalate(&mut event, &["pqc".into()]);
+
+        // PQC should return NotApplicable, not Fail
+        assert!(
+            event
+                .findings
+                .iter()
+                .any(|f| f.status == FindingStatus::NotApplicable),
+            "PQC should be NotApplicable for NoTls targets"
+        );
+        // No FAIL findings from PQC alone
+        assert!(
+            !event
+                .findings
+                .iter()
+                .any(|f| f.status == FindingStatus::Fail),
+            "PQC alone should not produce FAIL for NoTls"
+        );
+        // Status stays NoTls
+        assert_eq!(event.overall_status, ScanStatus::NoTls);
+    }
+
+    // ── Pass → Fail escalation tests (regression) ──────────────────────
+
+    #[test]
+    fn pass_escalates_to_fail_on_fail_finding() {
+        use crate::qem::observation::{CertInfo, TlsInfo};
+        use chrono::{TimeDelta, Utc};
+
+        // TLS 1.0 with expired cert — should produce FAIL findings
+        let tls = TlsInfo {
+            negotiated_version: "TLSv1.0".into(),
+            cipher: "TLS_RSA_WITH_RC4_128_SHA".into(),
+            forward_secrecy: false,
+            pqc_hybrid: false,
+            cert: Some(CertInfo {
+                subject: "CN=test".into(),
+                issuer: "CN=TestCA".into(),
+                not_before: Utc::now(),
+                not_after: Utc::now() - TimeDelta::days(30),
+                days_to_expiry: -30,
+                san: vec!["test.example.com".into()],
+                serial: Some("01".into()),
+            }),
+        };
+
+        let mut event = make_event(ScanStatus::Pass, Some(tls));
+        evaluate_and_escalate(&mut event, &["pci-dss".into()]);
+
+        // Pass with FAIL findings should escalate to Fail
+        assert_eq!(
+            event.overall_status,
+            ScanStatus::Fail,
+            "Pass should escalate to Fail when compliance findings fail"
+        );
+    }
+
+    #[test]
+    fn pass_stays_pass_when_all_controls_pass() {
+        use crate::qem::observation::{CertInfo, TlsInfo};
+        use chrono::{TimeDelta, Utc};
+
+        let tls = TlsInfo {
+            negotiated_version: "TLSv1.3".into(),
+            cipher: "TLS_AES_256_GCM_SHA384".into(),
+            forward_secrecy: true,
+            pqc_hybrid: false,
+            cert: Some(CertInfo {
+                subject: "CN=test".into(),
+                issuer: "CN=TestCA".into(),
+                not_before: Utc::now(),
+                not_after: Utc::now() + TimeDelta::days(90),
+                days_to_expiry: 90,
+                san: vec!["test.example.com".into()],
+                serial: Some("01".into()),
+            }),
+        };
+
+        let mut event = make_event(ScanStatus::Pass, Some(tls));
+        evaluate_and_escalate(&mut event, &["pci-dss".into()]);
+
+        assert_eq!(event.overall_status, ScanStatus::Pass);
+    }
+
+    // ── Timeout / Error bypasses evaluation ────────────────────────────
+
+    #[test]
+    fn timeout_skips_compliance_evaluation() {
+        let mut event = make_event(ScanStatus::Timeout, None);
+        evaluate_and_escalate(&mut event, &["pci-dss".into()]);
+
+        // Timeout should not enter compliance evaluation — no findings
+        assert!(event.findings.is_empty());
+        assert_eq!(event.overall_status, ScanStatus::Timeout);
     }
 }

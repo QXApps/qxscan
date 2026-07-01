@@ -1,10 +1,12 @@
-.PHONY: help build up down status logs scan scan-all pqc-check legacy-check clean rebuild demo-suite
+.PHONY: help build up down status logs scan scan-all pqc-check legacy-check clean rebuild demo-suite test-classification test-edge test-services test-standard test-all
 
 SHELL := /bin/bash
 
 # The compose file lives at project root now
 COMPOSE_FILE := $(shell [ -f ../docker-compose.yml ] && echo ../docker-compose.yml || echo docker-compose.yml)
 COMPOSE := docker compose -f $(COMPOSE_FILE)
+# Makefile's own directory — safe regardless of where make was invoked
+SCRIPT_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -74,13 +76,31 @@ export-json: ## Export scan results as JSON
 export-html: ## Export scan results as HTML
 	$(COMPOSE) run --rm scanner scan frontend-pqc --port 443 --no-verify --timeout 15 --output html --report-file /reports/scan.html
 
-demo-suite: ## Run demo test suite
+demo-suite: ## Run demo integration test (Docker health + content assertions)
 	$(COMPOSE) up demo-scan
 
-clean: ## Clean up all data volumes and local images
+clean: ## Clean up all data volumes, local images, and stale results
 	$(COMPOSE) down -v --rmi local --remove-orphans
+	rm -f results/*.json reports/report.html
+
+clean-results: ## Remove stale scan result files only
+	rm -f results/*.json reports/*.json reports/*.html
 
 rebuild: clean build up ## Full rebuild and restart
+
+# ── Test Targets ────────────────────────────────────────────────────────────
+
+test-classification: ## Run classification test against standard targets
+	cd $(SCRIPT_DIR) && bash classification_test.sh standard
+
+test-services: ## Run classification test against service protocol targets
+	cd $(SCRIPT_DIR) && bash classification_test.sh services
+
+test-edge: ## Run classification test against edge-case targets
+	cd $(SCRIPT_DIR) && bash classification_test.sh edge
+
+test-all: ## Run all test suites (requires Docker demo stack + built binary)
+	cd $(SCRIPT_DIR) && bash test_all.sh
 
 # Default target
 .DEFAULT_GOAL := help

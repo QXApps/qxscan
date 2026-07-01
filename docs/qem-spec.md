@@ -33,7 +33,7 @@ document:
 
 ```
 ScanEvent (v1)
-├── metadata       — scan_id, timestamp, target, overall status
+├── metadata       — scan_id, timestamp, scanner, target, overall status
 ├── evidence       — TLS version, cipher suite, certificate info
 ├── findings       — compliance control evaluations (pass/fail/warn)
 └── compliance     — rolled-up scores per standard
@@ -72,6 +72,7 @@ this to `"2"` and providing a migration path.
   "scan_id":          "<uuid-v4>",
   "scanned_at":       "<rfc3339-utc>",
   "scan_duration_ms": <u64>,
+  "scanner":          { <ScannerInfo> },
   "target":           { <TargetInfo> },
   "overall_status":   "<pass|fail|warn|error|timeout|...>",
   "tls":              <TlsInfo | null>,
@@ -79,6 +80,15 @@ this to `"2"` and providing a migration path.
   "compliance":       { "<standard>": <ComplianceScore>, ... }
 }
 ```
+
+### `ScannerInfo`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Product name (e.g. `"QXScan"`) |
+| `version` | string | Build version from Cargo.toml (e.g. `"0.1.0"`) |
+| `engine` | string | QEM engine name (e.g. `"QEM"`) |
+| `platform` | string | Compile-time platform (e.g. `"linux-x86_64"`) |
 
 ### `TargetInfo`
 
@@ -207,6 +217,12 @@ controls_total  — excludes NotApplicable findings
   "scan_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "scanned_at": "2026-06-27T07:19:46Z",
   "scan_duration_ms": 57,
+  "scanner": {
+    "name": "QXScan",
+    "version": "0.1.0",
+    "engine": "QEM",
+    "platform": "linux-x86_64"
+  },
   "target": {
     "host": "example.com",
     "ip": "93.184.216.34",

@@ -102,6 +102,91 @@ cd demo && make status      # Container status
 cd demo && make down        # Stop everything
 ```
 
+## Test Suite
+
+The demo folder includes a layered test harness for Docker health, report
+schema, and scanner classification correctness.
+
+### `test_docker.sh` — Docker health + content assertions
+
+Single script covering both Docker infrastructure and report validation.
+
+```bash
+cd demo && bash test_docker.sh                              # both phases
+cd demo && bash test_docker.sh --health-only                # infrastructure only
+cd demo && bash test_docker.sh --assertions-only /tmp/report.json  # content only
+```
+
+**Phase 1 — Infrastructure Health:** All 8 containers running, ALB health
+endpoints, frontend HTTPS responses, backend API + Swagger, DB connectivity,
+SMTP port open. (17 assertions, requires Docker.)
+
+**Phase 2 — Content Assertions:** JSON schema validation via `jq` (schema
+version, scan metadata, TLS fields, findings array, compliance scores),
+plus exit code checks for 0 and 2. (Optional JSON report argument.)
+
+### `classification_test.sh` — External target classification
+
+Scans external hosts and reports how each was classified.
+
+```bash
+cd demo && bash classification_test.sh standard   # ~60 popular HTTPS sites
+cd demo && bash classification_test.sh services   # non-443 TLS services
+cd demo && bash classification_test.sh edge       # deterministic edge cases
+cd demo && bash classification_test.sh all        # all three sequentially
+```
+
+### `test_all.sh` — Master test runner
+
+Orchestrates all suites with optional filtering.
+
+```bash
+cd demo && bash test_all.sh                  # all suites
+cd demo && bash test_all.sh --skip-docker    # skip Docker-dependent checks
+cd demo && bash test_all.sh --suite edge     # only the edge-case suite
+```
+
+Environment variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `QXSCAN_BIN` | `../target/release/qxscan` | Path to the qxscan binary |
+| `QXSCAN_TIMEOUT` | `5` | Seconds per classification target |
+| `SKIP_DOCKER` | `0` | Set to `1` to skip Docker suites |
+
+You can also invoke suites via the Makefile:
+
+```bash
+cd demo && make test-all             # all suites (via test_all.sh)
+cd demo && make test-classification  # standard targets
+cd demo && make test-services        # service protocol targets
+cd demo && make test-edge            # edge-case targets
+cd demo && make clean-results        # remove stale scan artifacts
+```
+
+### Target files
+
+All scan target lists live under `demo/targets/`:
+
+| File | Purpose |
+|------|---------|
+| `targets-docker.txt` | Docker demo services (frontend-pqc, caddy-pqc, backend, …) |
+| `targets-standard.txt` | ~60 popular HTTPS sites for broad classification testing |
+| `targets-services.txt` | Non-443 TLS services (DNS-over-TLS, SMTPS, IMAPS, APIs) |
+| `targets-edge.txt` | Deterministic targets with documented expected outcomes for CI |
+
+## CI Integration
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) automatically runs
+the content assertion suite on every push and PR:
+
+1. Builds the release binary
+2. Scans `example.com` and saves a JSON report
+3. Runs `test_docker.sh --assertions-only` against the report — validates JSON
+   schema, exit codes, and finding structure with `jq`
+4. If the network scan fails, a fallback step still checks exit codes 0 and 2
+   to ensure the binary is functional
+
 ## Certificate Details
 
 - **PQC-ready services**: ECDSA (prime256v1) certificates — compatible with X25519MLKEM768
