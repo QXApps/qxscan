@@ -1,9 +1,11 @@
-# qxscan demo targets
+# qxscan Docker demo targets
 # Each line: hostname:port or IP:port
-# Run: docker compose run --rm scanner qxscan scan --targets-file /data/targets.txt
-#
 # These targets are expected to be running from the docker-compose demo stack.
 # Start with: docker compose up -d
+#
+# Usage:
+#   docker compose run --rm -v ./demo/targets:/data/targets:ro scanner scan --targets-file /data/targets/targets-docker.txt
+#   qxscan scan --targets-file demo/targets/targets-docker.txt --no-verify --timeout 15
 
 frontend-pqc:443
 caddy-pqc:443

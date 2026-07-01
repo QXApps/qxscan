@@ -75,7 +75,7 @@ fn resolve_targets_from_file() {
     writeln!(file, "host1.example.com").unwrap();
     writeln!(file, "host2.example.com:9443").unwrap();
     writeln!(file, "# comment line").unwrap();
-    writeln!(file, "").unwrap();
+    writeln!(file).unwrap();
     writeln!(file, "host3.example.com").unwrap();
     file.flush().unwrap();
 

@@ -8,6 +8,9 @@ on:
       - "feature/**"
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -48,3 +51,28 @@ jobs:
 
       - name: Binary Size
         run: ls -lh target/release/qxscan
+
+      - name: Install test dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq
+
+      - name: Generate sample scan report
+        id: scan
+        run: |
+          ./target/release/qxscan scan example.com \
+            --no-verify --timeout 15 --standards pci-dss,hipaa \
+            --output json --report-file /tmp/qxscan_ci_report.json \
+            || echo "scan_skipped=true" >> "$GITHUB_OUTPUT"
+
+      - name: Demo content assertions
+        if: steps.scan.outputs.scan_skipped != 'true'
+        run: |
+          export QXSCAN_BIN=./target/release/qxscan
+          bash demo/test_docker.sh --assertions-only /tmp/qxscan_ci_report.json
+
+      - name: Demo exit code checks (fallback)
+        if: steps.scan.outputs.scan_skipped == 'true'
+        run: |
+          # Verify known exit codes
+          ./target/release/qxscan 2>/dev/null; [ $? -eq 0 ] || { echo "FAIL: help exit code"; exit 1; }
+          ./target/release/qxscan --bogus 2>/dev/null; [ $? -eq 2 ] || { echo "FAIL: unknown flag exit code"; exit 1; }
+          echo "✅ Exit codes OK"

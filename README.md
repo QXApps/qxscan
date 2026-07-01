@@ -14,6 +14,24 @@ QXScan connects to servers, collects TLS evidence, evaluates compliance
 against regulatory standards (PCI-DSS, HIPAA, SOC2, FISMA, PQC), and
 produces structured output (QEM) that any downstream tool can consume.
 
+```
+                ┌────────────┐
+                │   qxscan   │
+                └──────┬─────┘
+                       │
+               Collect Evidence
+                       │
+                  Produce QEM
+                       │
+        ┌──────┬───────┼───────┬──────┐
+        │      │       │       │      │
+        ▼      ▼       ▼       ▼      ▼
+      HTML   JSON  Prometheus  OCSF  CEF
+        │      │       │       │      │
+        ▼      ▼       ▼       ▼      ▼
+     Human  CI/CD  Dashboard  SIEM Syslog
+```
+
 ---
 
 ## Quick Start

@@ -124,23 +124,25 @@ pub fn run(
         event.overall_status = probed.status.clone();
         event.tls = probed.tls;
 
-        if event.overall_status == ScanStatus::Pass {
+        if event.overall_status == ScanStatus::Pass || event.overall_status == ScanStatus::NoTls {
             for standard in &standards {
                 let (findings, score) = crate::compliance::scoring::evaluate(&event, standard)?;
                 event.findings.extend(findings);
                 event.compliance.insert(standard.replace('-', "_"), score);
             }
 
-            if event
-                .findings
-                .iter()
-                .any(|f| f.status == FindingStatus::Fail)
+            if event.overall_status != ScanStatus::NoTls
+                && event
+                    .findings
+                    .iter()
+                    .any(|f| f.status == FindingStatus::Fail)
             {
                 event.overall_status = ScanStatus::Fail;
-            } else if event
-                .findings
-                .iter()
-                .any(|f| f.status == FindingStatus::Warn)
+            } else if event.overall_status != ScanStatus::NoTls
+                && event
+                    .findings
+                    .iter()
+                    .any(|f| f.status == FindingStatus::Warn)
             {
                 event.overall_status = ScanStatus::Warn;
             }
@@ -167,9 +169,9 @@ pub fn run(
     }
 
     // Compute exit code: 4 (unreachable/timeout) > 3 (FAIL finding) > 0 (pass).
-    // UnsupportedProtocol and NoTls fall through to 0 — the target was
-    // reachable but doesn't speak acceptable TLS; that's a scan result, not
-    // a connectivity failure.
+    // NoTls always produces FAIL compliance findings (standards default to
+    // pci-dss), so it returns exit code 3 (missing TLS is a compliance violation).
+    // UnsupportedProtocol falls through to 0.
     let exit_code = if events.iter().any(|e| {
         matches!(
             e.overall_status,

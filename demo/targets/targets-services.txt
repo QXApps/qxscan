@@ -1,0 +1,49 @@
+# =============================================================================
+# QXScan Service Protocol Test Targets
+# TLS services on non-standard ports: DNS-over-TLS, SMTPS, IMAPS, POP3S.
+# Use for: service-type scanning validation, protocol coverage testing.
+#
+# Usage:
+#   qxscan scan --targets-file targets-services.txt --service smtp
+#   qxscan scan --targets-file targets-services.txt
+# =============================================================================
+
+# ── DNS-over-TLS (port 853) ──────────────────────────────────────────────────
+1.1.1.1:853
+1.0.0.1:853
+8.8.8.8:853
+8.8.4.4:853
+dns.google:853
+dns.quad9.net:853
+9.9.9.9:853
+
+# ── SMTPS / Implicit TLS (port 465) ──────────────────────────────────────────
+smtp.gmail.com:465
+smtp-mail.outlook.com:465
+smtp.mail.yahoo.com:465
+smtp.zoho.com:465
+smtp.sendgrid.net:465
+smtp.postmarkapp.com:465
+
+# ── IMAPS / Implicit TLS (port 993) ──────────────────────────────────────────
+imap.gmail.com:993
+outlook.office365.com:993
+imap.mail.yahoo.com:993
+imap.zoho.com:993
+
+# ── POP3S / Implicit TLS (port 995) ──────────────────────────────────────────
+pop.gmail.com:995
+outlook.office365.com:995
+pop.mail.yahoo.com:995
+
+# ── Cloud / API Gateways ──────────────────────────────────────────────────────
+api.cloudflare.com:443
+api.github.com:443
+api.digitalocean.com:443
+api.vercel.com:443
+api.stripe.com:443
+api.datadoghq.com:443
+api.newrelic.com:443
+api.pagerduty.com:443
+api.twilio.com:443
+registry-1.docker.io:443

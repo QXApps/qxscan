@@ -1,5 +1,14 @@
 # Security Policy
 
+## Supported Versions
+
+| Version | Supported          |
+|---------|--------------------|
+| 0.x     | :white_check_mark: |
+
+All `0.x` releases receive security patches. The API may evolve between
+minor versions — check the [CHANGELOG](./CHANGELOG.md) before upgrading.
+
 ## Reporting a Vulnerability
 
 QXScan is a security tool — finding and fixing vulnerabilities in it is a

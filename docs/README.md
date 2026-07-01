@@ -13,6 +13,7 @@
 | QEM event model specification | [QEM Spec](qem-spec.md) |
 | Compliance standards and scoring | [Compliance](compliance.md) |
 | Exporting results to observability formats | [Export](export.md) |
+| Supported protocols and TLS behaviour | [Protocols](protocols.md) |
 | Daemon lifecycle and scheduler | [Daemon](daemon.md) |
 | Building, testing, and CI | [Testing](testing.md) |
 | Contributing code | [Contributing](contributing.md) |
@@ -30,6 +31,7 @@ docs/
 ├── qem-spec.md          ─── QX Event Model (publishable spec)
 ├── compliance.md        ─── Standards, controls, scoring
 ├── export.md            ─── Output formats (Prometheus, OCSF, CEF)
+├── protocols.md         ─── Supported protocols and TLS behaviour
 ├── daemon.md            ─── Background service, scheduler, SQLite
 ├── testing.md           ─── Build, test, lint, demo suite
 ├── contributing.md      ─── Coding conventions, PR checklist
@@ -47,6 +49,7 @@ docs/
 | QEM Spec | Tool builders, SIEM engineers |
 | Compliance | Compliance officers, security engineers |
 | Export | Platform engineers, observability teams |
+| Protocols | Network engineers, operators |
 | Daemon | SREs, operations |
 | Testing | CI/CD engineers, QA |
 | Contributing | Open source contributors |

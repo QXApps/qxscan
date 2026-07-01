@@ -21,6 +21,15 @@ cargo build --release
 ./target/release/qxscan --version
 ```
 
+> **Note:** If scanning returns `❌ Error` with TLS certificate verification
+> failures, set the `SSL_CERT_FILE` environment variable to your system's CA
+> bundle before running:
+> ```bash
+> export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+> ```
+> This is required on systems where vendored OpenSSL cannot auto-detect the
+> system CA store. The Docker image handles this automatically.
+
 ### From Docker
 
 ```bash
